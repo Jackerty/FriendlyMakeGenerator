@@ -10,10 +10,10 @@ EXE?=fmakegen
 
 RELEASE?=0
 ifeq ($(RELEASE),1)
-  OBJFOLDER=./release
+  OBJFOLDER=.release
   CFLAGS+=-DRELEASE -O3
 else
-  OBJFOLDER=./debug
+  OBJFOLDER=.debug
   CFLAGS+=-DDEBUG -g
 endif
 
@@ -23,6 +23,8 @@ SRC=$(wildcard Src/*.c)
 OBJ=$($(SRC:.c=.o):src=$(OBJFOLDER))
 DEP=$(wildcard $(OBJFOLDER)/*.d)
 
+.PHONY: all
+all: $(EXE)
 $(EXE): $(SRC)
 	$(CC) $(CFLAGS) -o$@ $^
 

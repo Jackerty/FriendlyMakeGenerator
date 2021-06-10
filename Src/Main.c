@@ -1,6 +1,8 @@
 #include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
+#include<ctype.h>
+#include<stdint.h>
 #include"PrintTools.h"
 #include"OpHand.h"
 
@@ -16,14 +18,16 @@
 
 int main(int argc, char **argv) {
 	//** HELLO LINE **//
-	printconst(STDOUT_FILENO,"Friendly Make Generator!\nCommit:"COMMIT"\nNumber of commit:"NUMCOMMITS"\nAuthor: Jackerty\n\n");
+	printconst(STDOUT_FILENO,"Friendly Make Generator!\nCommit: "COMMIT"\nNumber of commit: "NUMCOMMITS"\nAuthor: Jackerty\n\n");
 
 	//** CLI HANDLING. **//
 	// Basic variables that are effected by CLI.
 	// Counts are unsigned so that zero comparasion (faster) can be used at the loops.
 
 	// Usage message printed if --help is used.
-	const char usage[]="Usage: fmakegen <command> [options] <makefile>\n"
+	const char usage[]="Usage: fmakegen <command> [options] [makefile | folder]\n"
+	"\n"
+	"Generate or add to makefile and configuration script. Makefile is ether given manually or folder of the makefile is given."
 	"\n"
 	"List of commands (not case sensitive):\n"
 	"  init\tCreate Makefile if does not exits. \n"
@@ -43,10 +47,16 @@ int main(int argc, char **argv) {
 			case OPHAND_PROCESSING_DONE:;
 		}
 
-		// Handle command given.
-		if(constStrEq(argv[1],"init")){
 
-			;
+		// Handle command given.
+		// First turn it lower case.
+		for(char *c=argv[1];*c;c++) *c=tolower(*c);
+		// Second test what it is.
+		if(constStrEq(argv[1],"init")){
+			// Init creates makefile from scratch.
+			//int fd=open();
+			uint8_t iobuffer[4096];
+
 		}
 		else{
 			printconst(STDOUT_FILENO,"Provided a command doesn't exist!\n");
