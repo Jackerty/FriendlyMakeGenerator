@@ -1,9 +1,9 @@
 # C Compiler
 CC=gcc
 # C compiler flags
-CFLAGS=-Wall -DCOMMIT=\"$(shell git rev-parse HEAD)\" -DNUMCOMMITS=\"$(shell git rev-list --count HEAD)\"
+CFLAGS=-Wall -DCOMMIT=\"$(shell git rev-parse HEAD)\" -DNUMCOMMITS=\"$(shell git rev-list --count HEAD)\" `pkg-config --cflags libconfig`
 # Linked compiler flags
-LDFLAGS=
+LDFLAGS=`pkg-config --libs libconfig`
 
 # Executable name.
 EXE?=fmakegen
@@ -26,7 +26,7 @@ DEP=$(wildcard $(OBJFOLDER)/*.d)
 .PHONY: all
 all: $(EXE)
 $(EXE): $(SRC)
-	$(CC) $(CFLAGS) -o$@ $^
+	$(CC) $(CFLAGS) -o$@ $^ $(LDFLAGS)
 
 # Install and uninstall command
 .PHONY: install

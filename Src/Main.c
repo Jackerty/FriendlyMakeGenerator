@@ -7,6 +7,7 @@
 #include<ctype.h>
 #include<stdint.h>
 #include<stdbool.h>
+#include<libconfig.h>
 #include"PrintTools.h"
 #include"OpHand.h"
 
@@ -229,6 +230,25 @@ int main(int argc, char **argv) {
 			case OPHAND_NO_ARGUMENT: printErr("Option without a argument!"); return 2;
 			case OPHAND_PROCESSING_DONE:;
 		}
+
+		// Load configuration file.
+		config_t config;
+		config_init(&config);
+		if(config_read_file(&config,inipath)==CONFIG_FALSE){
+			switch(config_error_type(&config)){
+				case CONFIG_ERR_FILE_IO:
+					printErr("libconfig coudn't read fmakegen config!");
+					break;
+				case CONFIG_ERR_PARSE:
+					;
+					break;
+			}
+			return 3;
+		}
+		//TODO: Grap the info needed and close the configuration?
+		//      Leave config structure and query when needed?
+		;
+		config_destroy(&config);
 
 
 		// Handle command given.
