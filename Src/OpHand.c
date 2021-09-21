@@ -4,29 +4,30 @@
 #include<string.h>
 #include<stdlib.h>
 #include<unistd.h>
+#include<stdbool.h>
 #include"OpHand.h"
 
 	/*********************************
 	* Handles non-argument options.  *
 	*********************************/
-	static uint8_t switchNonArgument(const Option *option){
+	static bool switchNonArgument(const Option *option){
 		switch(option->flags.type){
-			case OPHAND_VALUE:
+			case OPHAND_CMD_VALUE:
 				*option->variable.p32=option->value.v32;
 				break;
-			case OPHAND_OR:
+			case OPHAND_CMD_OR:
 				*option->variable.p32|=option->value.v32;
 				break;
-			case OPHAND_AND:
+			case OPHAND_CMD_AND:
 				*option->variable.p32&=option->value.v32;
 				break;
-			case OPHAND_POINTER_VALUE:
+			case OPHAND_CMD_POINTER_VALUE:
 				*option->variable.str=option->value.str;
 				break;
-			case OPHAND_PRINT:
+			case OPHAND_CMD_PRINT:
 				(void)write(STDOUT_FILENO,(char*)option->variable.str,option->value.v32);
 				break;
-			case OPHAND_FUNCTION:
+			case OPHAND_CMD_FUNCTION:
 				// Return whatever callback returns
 				return option->variable.func(option->option,option->value.coderdata,0);
 		}
@@ -35,18 +36,21 @@
 	/*********************************
 	* Handles argument options.      *
 	*********************************/
-	static uint8_t switchArgument(char *arg,const Option *option){
+	static bool switchArgument(char *arg,const Option *option){
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored "-Wswitch"
 		switch(option->flags.type){
-			case OPHAND_VALUE:
+			case OPHAND_CMD_VALUE:
 				*option->variable.p32=atoi(arg);
 				break;
-			case OPHAND_POINTER_VALUE:
+			case OPHAND_CMD_POINTER_VALUE:
 				*option->variable.str=arg;
 				break;
-			case OPHAND_FUNCTION:
+			case OPHAND_CMD_FUNCTION:
 				// Return whatever callback returns
 				return option->variable.func(option->option,option->value.coderdata,arg);
 		}
+		#pragma GCC diagnostic pop
 		return !option->flags.stop;
 	}
 	/***************
@@ -67,6 +71,13 @@
 		// Simple start going through arguments and compare to options.
 		// Remember that first argument is the location of the execution.
 		for(uint32_t arg=0;arg<argn;arg++){
+
+			// Check that argument wasn't null pointer since POSIX standard does
+			// not define check for it at exec* function family.
+			// Behavior for this is continue processing.
+			if(args[arg]==0) continue;
+
+			// Actual processing
 			if(args[arg][0]=='-'){
 				if(args[arg][1]=='-'){
 					if(args[arg][2]!='\0'){
@@ -77,14 +88,14 @@
 								if(HAS_ARGUMENT(options[foundoption].flags)){
 									// Check that next argument exist.
 									if(++arg<argn){
-										uint8_t result=switchArgument(args[arg],options+foundoption);
+										bool result=switchArgument(args[arg],options+foundoption);
 										if(result) goto jmp_OUTER_LOOP_CONTINUE;
 										else return OPHAND_PROCESSING_STOPPED;
 									}
 									return OPHAND_NO_ARGUMENT;
 								}
 								else{
-									uint8_t result=switchNonArgument(options+foundoption);
+									bool result=switchNonArgument(options+foundoption);
 									if(result) goto jmp_OUTER_LOOP_CONTINUE;
 									else return OPHAND_PROCESSING_STOPPED;
 								}
@@ -106,14 +117,14 @@
 
 								if(HAS_ARGUMENT(options[foundoption].flags)){
 									if(args[arg][2]!='\0'){
-											uint8_t result=switchArgument(args[arg]+2,options+foundoption);
+											bool result=switchArgument(args[arg]+2,options+foundoption);
 											if(result) goto jmp_OUTER_LOOP_CONTINUE;
 											else return OPHAND_PROCESSING_STOPPED;
 									}
 									else{
 										// Check that next argument exist.
 										if(++arg<argn){
-											uint8_t result=switchArgument(args[arg],options+foundoption);
+											bool result=switchArgument(args[arg],options+foundoption);
 											if(result) goto jmp_OUTER_LOOP_CONTINUE;
 											else return OPHAND_PROCESSING_STOPPED;
 										}
@@ -121,16 +132,19 @@
 									return OPHAND_NO_ARGUMENT;
 								}
 								else{
-									uint8_t result=switchNonArgument(options+foundoption);
-									if(result) goto jmp_OUTER_LOOP_CONTINUE;
-									else return OPHAND_PROCESSING_STOPPED;
+									if(args[arg][2]=='\0'){
+										bool result=switchNonArgument(options+foundoption);
+										if(result) goto jmp_OUTER_LOOP_CONTINUE;
+										else return OPHAND_PROCESSING_STOPPED;
+									}
+									else return OPHAND_UNKNOW_OPTION;
 								}
 							}
 						}
 					}
 					return OPHAND_UNKNOW_OPTION;
 				}
-      }
+			}
 			else args[nonoptpoint++]=args[arg];
 			jmp_OUTER_LOOP_CONTINUE:;
 		}
