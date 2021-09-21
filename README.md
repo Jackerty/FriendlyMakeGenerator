@@ -24,6 +24,7 @@ First Release:
 - Can add source files to list.
 - Can add folders to list.
 - When adding to a list simple name check is addition already in the list.
+- Understanding addprefix addpostfix for list addition.
 - Flag to disable checks when additing to a list.
 - Can create targets.
 - When creating a target check that target doesn't already exist.
@@ -41,13 +42,28 @@ First Release:
 - Init creates CXX variable.
 - Init creates CFLAGS variable.
 - Init creates CXXFLAGS variable.
-- Init creates all target.
-- Init creates install and uninstall target.
+- Init creates LDFLAGS variable.
+- Init creates default targets
+	- all (compile everything including documentation. Default of make)
+	- install (install software)
+	- uninstall (uninstall software)
+	- clean (clean the build enviroment)
+	- distclean (clean ./configure creations)
+	- check (test suite)
+	- intallcheck (Check existance of instalation of the software)
+	- dist (make a software download package)
+- Init file creation group rights option.
 - Coupling between install and uninstall.
 - Automatic clean target creation.
 - Program understands --help and -h options even without command.
-- Friend command which can edits according to a standard.
+- Friend command which can edit according to a template.
 - Friend command can check are install uninstall coupled and fixes the matter.
+- Program configuration file for INI.
+- Program configuration file can choose default names for makefile and configure file.
+- Program configutation file can choose makefile.config makefile name.
+- Program group permission rights option for created files.
+- Program work even if configuration file doesn't exist or is erroneous.
+- Prongram configuration file error warning to user.
 
 After first release:
 - Dynamicly loading Curse GUI.
@@ -56,6 +72,7 @@ After first release:
 - Python build system support?
 - Java build system support?
 - Hostile takeover of CMake projects.
-- Progress bar creation.
+- Progress bar.
+- Adding git hook scripts.
 
 ## Compile
