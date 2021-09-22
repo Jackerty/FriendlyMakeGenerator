@@ -213,20 +213,21 @@ int main(int argc, char **argv) {
 		// INI configuration location for the program.
 		// Default value depends on DEBUG mode so development is seperate.
 		// TODO: config file name macro?
-		char *inipath;
+		char *cfgpath;
 		#if DEBUG
-			inipath="etc/config.cfg";
+			cfgpath="etc/config.cfg";
 		#else
 			//TODO: Add macro checks for this!
 			#define PROG_LOC "/etc/fmakegen/"
-			inipath=PROG_LOC "/config.cfg";
+			cfgpath=PROG_LOC "/config.cfg";
 		#endif
 
 		// Call opHand to handle options. NOTE: argc-1 and argv+1 jumps over program name.
 		const Option options[]={
 			{"help",.variable.printstr=usage,.value.v32=sizeof(usage),'h',{false,true,OPHAND_CMD_PRINT}},
 			{"version",.variable.p32=&progflags.shadow,.value.v32=1,'v',{false,true,OPHAND_CMD_OR}},
-			{"config",.variable.str=&inipath,.value.str=NULL,'\0',{true,false,OPHAND_CMD_POINTER_VALUE}},
+			{"config",.variable.str=&cfgpath,.value.str=NULL,'\0',{true,false,OPHAND_CMD_POINTER_VALUE}},
+			{"no-config",.variable.str&cfgpath,value.str=NULL,'\0',{false,false,OPHAND_CMD_POINTER_VALUE}},
 			{"add-configure",.variable.p32=&progflags.shadow,.value.v32=0,'c',{false,false,OPHAND_CMD_VALUE}},
 		};
 		switch(opHand(argc-1,argv+1,options,sizeof(options)/sizeof(Option))){
@@ -237,33 +238,34 @@ int main(int argc, char **argv) {
 		}
 
 		// Load configuration file.
-		config_t config;
-		config_init(&config);
-		if(config_read_file(&config,inipath)==CONFIG_FALSE){
-			// Program must work even if configuration does not exist
-			// fails for bizarre reasons.
-			config_error_t error=config_error_type(&config);
-			switch(config_error_type(&config)){
-				case CONFIG_ERR_FILE_IO:
-					printWarm("libconfig coudn't read fmakegen config!");
-					break;
-				case CONFIG_ERR_PARSE:
-					printWarm("Libconfig parse error!");
-					print(STDERR_FILENO,config_error_text(&config));
-					break;
-				default:
-					// This should not happen.
-					printWarm("libconfig whut?");
+		if(cfgpath)
+			config_t config;
+			config_init(&config);
+			if(config_read_file(&config,cfgpath)==CONFIG_FALSE){
+				// Program must work even if configuration does not exist
+				// fails for bizarre reasons.
+				config_error_t error=config_error_type(&config);
+				switch(config_error_type(&config)){
+					case CONFIG_ERR_FILE_IO:
+						printWarm("libconfig coudn't read fmakegen config!");
+						break;
+					case CONFIG_ERR_PARSE:
+						printWarm("Libconfig parse error!");
+						print(STDERR_FILENO,config_error_text(&config));
+						break;
+					default:
+						// This should not happen.
+						printWarm("libconfig whut?");
+				}
+				// TODO: is this config_destroy needed?
+				//       Depends on next todo.
+				// config_destroy(&config);
 			}
-			// TODO: is this config_destroy needed?
-			//       Depends on next todo.
-			// config_destroy(&config);
+			//TODO: Grap the info needed and close the configuration?
+			//      Leave config structure and query when needed?
+			;
+			config_destroy(&config);
 		}
-		//TODO: Grap the info needed and close the configuration?
-		//      Leave config structure and query when needed?
-		;
-		config_destroy(&config);
-
 
 		// Handle command given.
 		// First turn it lower case.
