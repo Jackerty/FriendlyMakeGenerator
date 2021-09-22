@@ -11,7 +11,7 @@ Don't worry Friendly Makefile Generator (fmakegen) is here to make build system 
 ## Examples
 
 ## Feature list
-- NO makefile.am or makefile.in
+- NO makefile.am or makefile.in in the project folder
 - NO CMakeList or CMakeFiles
 - Makefile only used to know state of the makefile.
 - Configure script only used know state of configure script.
@@ -44,26 +44,33 @@ First Release:
 - Init creates CXXFLAGS variable.
 - Init creates LDFLAGS variable.
 - Init creates default targets
-	- all (compile everything including documentation. Default of make)
-	- install (install software)
-	- uninstall (uninstall software)
-	- clean (clean the build enviroment)
-	- distclean (clean ./configure creations)
-	- check (test suite)
-	- intallcheck (Check existance of instalation of the software)
-	- dist (make a software download package)
+	* all (compile everything including documentation. Default of make)
+	* install (install software)
+	* uninstall (uninstall software)
+	* clean (clean the build enviroment)
+	* distclean (clean ./configure creations)
+	* check (test suite)
+	* intallcheck (Check existance of instalation of the software)
+	* dist (make a software download package)
 - Init file creation group rights option.
 - Coupling between install and uninstall.
+- install and uninstall understand prefixes.
 - Automatic clean target creation.
 - Program understands --help and -h options even without command.
 - Friend command which can edit according to a template.
 - Friend command can check are install uninstall coupled and fixes the matter.
-- Program configuration file for INI.
+- Program configuration file for libconfig.
 - Program configuration file can choose default names for makefile and configure file.
 - Program configutation file can choose makefile.config makefile name.
 - Program group permission rights option for created files.
 - Program work even if configuration file doesn't exist or is erroneous.
 - Prongram configuration file error warning to user.
+- Have comment on makefiles and configure scripts which store some state about project folder.
+	* template used to create the file.
+	* version of fmakegen init was run on.
+	* version of fmakegen last modification was run on.
+	* Option to turn off
+	* Have something libconfig can read through config_read_string
 
 After first release:
 - Dynamicly loading Curse GUI.
@@ -74,5 +81,7 @@ After first release:
 - Hostile takeover of CMake projects.
 - Progress bar.
 - Adding git hook scripts.
+- config.h support?
+	* make does not create config.h
 
-## Compile
+## Build
