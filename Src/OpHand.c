@@ -204,6 +204,8 @@
 				if(returnval!=OPHAND_PROCESSING_DONE) return returnval;
 			}
 			else break;
+			// Next option to handle.
+			arg++;
 		}
 		// Command non-option or end of command line arguments is been hit!
 		// Handle case where command was not given.
