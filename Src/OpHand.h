@@ -22,9 +22,12 @@
 *********************************************************/
 typedef enum OpHandReturn{
 	OPHAND_PROCESSING_DONE=0,
-	OPHAND_PROCESSING_STOPPED=1,
-	OPHAND_UNKNOW_OPTION=2,
-	OPHAND_NO_ARGUMENT=3,
+	OPHAND_PROCESSING_STOPPED,
+	OPHAND_UNKNOW_OPTION,
+	OPHAND_NO_ARGUMENT,
+	OPHAND_ARGUMENT_ON_NONE_ARGUMENT,
+	OPHAND_NO_ARG_CMD,
+	OPHAND_UNKNOWN_ARG_CMD,
 }OpHandReturn;
 /*********************************************************
 * Macros for the option flags.                           *
@@ -86,6 +89,17 @@ typedef struct Option{
 	char option;
 	OptionFlag flags;
 }Option;
+/*********************************************************
+* Ophand command for parsing CLI with commands. Command  *
+* is first non-option argument which decides what        *
+* operation is done. This works somewhat like git.       *
+* Commands change what options are valid.                *
+*********************************************************/
+typedef struct OpHandCommand{
+	char *cmdstr;
+	const Option *options;
+	uint32_t optionslen;
+}OpHandCommand;
 
 /*********************************************************
 * Function performs the option handling. Returns 1 if    *
@@ -102,4 +116,16 @@ typedef struct Option{
 * ignored.                                               *
 *********************************************************/
 OpHandReturn opHand(int argn,char *restrict *restrict args,const Option *restrict options,uint32_t optionslen);
+/*********************************************************
+* Function performs option handling where first          *
+* non-option is a command with it's own sub options.     *
+*                                                        *
+* Return value is same as opHand but OPHAND_NO_ARG_CMD,  *
+* and OPHAND_UNKNOWN_ARG_CMD are added for cases where   *
+* non-option command is not found or is unknown, and     *
+* id of non-option command and other non-parameter are   *
+* retuned by cmdid and nonoptionargs.                    *
+*********************************************************/
+OpHandReturn opHandCommand(int argn,char *restrict *args,const Option *restrict globaloptions,uint32_t globaloptionslen,const OpHandCommand *restrict cmds,const int32_t cmdssize,int32_t *cmdid,char ***nonoptionargs);
+
 #endif /* _OP_HAND_H_ */

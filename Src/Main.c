@@ -4,7 +4,6 @@
 #include<sys/stat.h>
 #include<fcntl.h>
 #include<errno.h>
-#include<ctype.h>
 #include<stdint.h>
 #include<stdbool.h>
 #include<libconfig.h>
@@ -15,11 +14,6 @@
 * Simple macro to find miminum of two values. *
 **********************************************/
 #define MIN(_x_,_y_) (_x_ < _y_ ? _x_ : _y_ )
-/**********************************************
-* Macro for constant string equality check    *
-* against user input.                         *
-**********************************************/
-#define constStrEq(U,C) strncmp(U,C,MIN(strlen(U),strlen(C)))==0
 /**********************************************
 * Standardize error formating for this        *
 * program's main.                             *
@@ -62,7 +56,7 @@ typedef enum OpeningReturn{
 *   arise. Note OPEN_DOES_NOT_EXIST error     *
 *   means that path does not exist.           *
 **********************************************/
-static OpeningReturn makePath(const char **pathforopen,const char *path,const char *defaultpath){
+static OpeningReturn makePath(char **pathforopen,char *path,char *defaultpath){
 
 	if(path==NULL){
 		*pathforopen=defaultpath;
@@ -80,6 +74,7 @@ static OpeningReturn makePath(const char **pathforopen,const char *path,const ch
 						// Allocate temporary memory to hold new path.
 						// New path strings length is path's length plus
 						// defaultpath's length plus one for null symbol.
+						//TODO: It is a folder but did the path include slash as a ending or not?
 						const size_t pathlen=strlen(path);
 						const size_t defaultpathlen=strlen(defaultpath);
 						const size_t templen=strlen(path)+strlen(defaultpath)+1;
@@ -87,9 +82,11 @@ static OpeningReturn makePath(const char **pathforopen,const char *path,const ch
 						memcpy((char*)*pathforopen,path,pathlen);
 						memcpy((char*)*pathforopen+pathlen,defaultpath,defaultpathlen);
 					}
+					break;
 				case S_IFREG:
 					// Handle regular file.
 					*pathforopen=path;
+					break;
 				default:
 					return OPEN_NOT_SUPPORTED_DEVICE;
 			}
@@ -122,9 +119,9 @@ static OpeningReturn makePath(const char **pathforopen,const char *path,const ch
 *   For other errors look at OpeningReturn    *
 *   enumerator.                               *
 **********************************************/
-static OpeningReturn createFile(int *fd,const char *path,const char *defaultpath){
+static OpeningReturn createFile(int *fd,char *path,char *defaultpath){
 
-	const char *pathforopen;
+	char *pathforopen;
 	OpeningReturn returnvalue=makePath(&pathforopen,path,defaultpath);
 
 	// Open the file.
@@ -154,12 +151,12 @@ static OpeningReturn createFile(int *fd,const char *path,const char *defaultpath
 
 	jmp_CREATE_THE_FILE:
 	{
-		*fd=open(path,O_RDWR|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+		*fd=open(pathforopen,O_RDWR|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 		// Before continuing free allocated memory.
 		if(pathforopen!=path && pathforopen!=defaultpath){
 			free((char*)pathforopen);
 		}
-		if(*fd){
+		if(*fd==-1){
 			// What error happened.
 			if(errno==EACCES){
 				return OPEN_ACCESS_ERROR;
@@ -173,9 +170,62 @@ static OpeningReturn createFile(int *fd,const char *path,const char *defaultpath
 	return OPEN_CREATED;
 }
 /**********************************************
+* Init function return value.                 *
+**********************************************/
+typedef enum InitReturn{
+	INIT_RETURN_SUCCESS,
+}InitReturn;
+/**********************************************
+* Makefile init flags? *
+**********************************************/
+/**********************************************
+* Initialize makefile.                        *
+**********************************************/
+static InitReturn initMakefile(int makefilefd,uint8_t *iobuffer){
+	InitReturn returner=INIT_RETURN_SUCCESS;
+
+	// To copy what features init command should have at this time.
+	// - Initialazation from templates.
+	// - Init creates CC variable.
+	// - Init creates CXX variable.
+	// - Init creates CFLAGS variable.
+	// - Init creates CXXFLAGS variable.
+	// - Init creates LDFLAGS variable.
+	// - Init creates default targets
+	//   - all (compile everything including documentation. Default of make)
+	//   - install (install software)
+	//   - uninstall (uninstall software)
+	//   - clean (clean the build enviroment)
+	//   - distclean (clean ./configure creations)
+	//   - check (test suite)
+	//   - intallcheck (Check existance of instalation of the software)
+	//   - dist (make a software download package)
+	//   - help
+	// - Init file creation group rights option.
+	//
+	// Last one is just option but how to add templates and certain targets and variables?
+	// - Make so that by default default template from init file is used.
+	// - This can be overwritten by telling targets and variables manually.
+	// - Other template can be pointed at.
+	//
+	// What is template file format? What format did autotools use?
+	// - INI file with makefile with snprintf_s formatting and variable answers?
+	// - Makefile.in uses @variable@ it seems.
+	// - Init could ask variables it does not know.
+	// Best option is INI config file with makefile which uses @variables@.
+	;
+
+	return returner;
+}
+/**********************************************
 * Main handles CLI mainly.                    *
 **********************************************/
-int main(int argc, char **argv) {
+#define MAIN_RETURN_SUCCESS 0
+#define MAIN_RETURN_UNKNOWN_OPTION 1
+#define MAIN_RETURN_OPTION_WITHOUT_ARGUMENT 2
+#define MAIN_RETURN_ARGUMENT_ON_NON_ARGUMENT_OPTION 3
+#define MAIN_RETURN_UNKNOWN_COMMAND 4
+int main(int argc, char **argv){
 	//** HELLO LINE **//
 	// TODO: Add bug report line after author leaving newline
 	printconst(STDOUT_FILENO,"Friendly Make Generator!\nCommit: "COMMIT"\nNumber of commits: "NUMCOMMITS"\nAuthor: Jackerty\n\n");
@@ -196,7 +246,7 @@ int main(int argc, char **argv) {
 	"  -v, --version\tPrint only version information.\n"
 	"  --config <fmakegen-ini-file>\tSelect INI configuration file for this fmakegen run.\n"
 	"\nList of options which work with commands init:\n"
-	"  -c, --configuration\tFor init make configuration script.\n";
+	"  -c, --configuration\tFor init make configuration script (configuration script name can be given in as second parameter).\n";
 
 	if(argc>1){
 
@@ -204,6 +254,7 @@ int main(int argc, char **argv) {
 		// Union is done so that flags can be feeded to ophand.
 		union{
 			struct{
+				// Is configuration file included.
 				bool configurationincluded:1;
 			};
 			int32_t shadow;
@@ -215,7 +266,7 @@ int main(int argc, char **argv) {
 		// TODO: config file name macro?
 		char *cfgpath;
 		#if DEBUG
-			cfgpath="etc/config.cfg";
+			cfgpath="Etc/config.cfg";
 		#else
 			//TODO: Add macro checks for this!
 			#define PROG_LOC "/etc/fmakegen/"
@@ -223,17 +274,30 @@ int main(int argc, char **argv) {
 		#endif
 
 		// Call opHand to handle options. NOTE: argc-1 and argv+1 jumps over program name.
-		const Option options[]={
+		const Option globaloptions[]={
 			{"help",.variable.printstr=usage,.value.v32=sizeof(usage),'h',{false,true,OPHAND_CMD_PRINT}},
 			{"version",.variable.p32=&progflags.shadow,.value.v32=1,'v',{false,true,OPHAND_CMD_OR}},
 			{"config",.variable.str=&cfgpath,.value.str=NULL,'\0',{true,false,OPHAND_CMD_POINTER_VALUE}},
 			{"no-config",.variable.str=&cfgpath,.value.str=NULL,'\0',{false,false,OPHAND_CMD_POINTER_VALUE}},
-			{"add-configure",.variable.p32=&progflags.shadow,.value.v32=0,'c',{false,false,OPHAND_CMD_VALUE}},
 		};
-		switch(opHand(argc-1,argv+1,options,sizeof(options)/sizeof(Option))){
-			case OPHAND_PROCESSING_STOPPED: return 0;
-			case OPHAND_UNKNOW_OPTION: printErr("Unknown option!"); return 1;
-			case OPHAND_NO_ARGUMENT: printErr("Option without a argument!"); return 2;
+		const Option initoptions[]={
+			{"configuration",.variable.p32=&progflags.shadow,.value.v32=0,'c',{false,false,OPHAND_CMD_VALUE}}
+		};
+		const OpHandCommand commands[]={
+			{"init",initoptions,sizeof(initoptions)/sizeof(Option)}
+		};
+
+		// Id command that was called and pointer to start of non-option arguments.
+		int32_t cmdid;
+		char **nonparameters;
+
+		switch(opHandCommand(argc-1,argv+1,globaloptions,sizeof(globaloptions)/sizeof(Option),commands,sizeof(commands)/sizeof(OpHandCommand),&cmdid,&nonparameters)){
+			case OPHAND_PROCESSING_STOPPED: return MAIN_RETURN_SUCCESS;
+			case OPHAND_UNKNOW_OPTION: printErr("Unknown option!"); return MAIN_RETURN_UNKNOWN_OPTION;
+			case OPHAND_NO_ARGUMENT: printErr("Option without a argument!"); return MAIN_RETURN_OPTION_WITHOUT_ARGUMENT;
+			case OPHAND_ARGUMENT_ON_NONE_ARGUMENT: printErr("Argument on non-argument option!"); return MAIN_RETURN_ARGUMENT_ON_NON_ARGUMENT_OPTION;
+			case OPHAND_UNKNOWN_ARG_CMD: printErr("Unknown command!"); return MAIN_RETURN_UNKNOWN_COMMAND;
+			case OPHAND_NO_ARG_CMD: goto jmp_PRINT_USAGE;
 			case OPHAND_PROCESSING_DONE:;
 		}
 
@@ -250,6 +314,7 @@ int main(int argc, char **argv) {
 						break;
 					case CONFIG_ERR_PARSE:
 						printWarm("Libconfig parse error!");
+						// TODO: Didn't work. Does not have linenumber nor newline to end the text.
 						print(STDERR_FILENO,config_error_text(&config));
 						break;
 					default:
@@ -266,45 +331,43 @@ int main(int argc, char **argv) {
 			config_destroy(&config);
 		}
 
-		// Handle command given.
-		// First turn it lower case.
-		for(char *c=argv[1];*c;c++) *c=tolower(*c);
 		// Second test what it is.
-		if(constStrEq(argv[1],"init")){
-			// Init creates makefile from scratch.
-			// Makefile isn't created if file exists and has content.
-			uint8_t iobuffer[4096];
+		switch(cmdid){
+			case 0:
+				// Init creates makefile from scratch.
+				// Makefile isn't created if file exists and has content.
+				uint8_t iobuffer[4096];
 
-			int makefilefd;
-			OpeningReturn makefilereturn=createFile(&makefilefd,argv[2],"Makefile");
-			if(makefilereturn==OPEN_SUCCESS){
-				// Is file empty?
-				// Two stat system calls needed since
-				// path is not always to target file.
-				struct stat statbuff;
-				if(fstat(makefilereturn,&statbuff)==0){
-					if(statbuff.st_size==0){
-						//TODO: INIT makefile
-						;
+				int makefilefd;
+				OpeningReturn makefilereturn=createFile(&makefilefd,nonparameters[0],"Makefile");
+				if(makefilereturn==OPEN_SUCCESS){
+					// Is file empty?
+					// Two stat system calls needed since
+					// path is not always to target file.
+					struct stat statbuff;
+					if(fstat(makefilereturn,&statbuff)==0){
+						if(statbuff.st_size==0){
+							//TODO: INIT makefile
+							;
+						}
+						else printErr("Init was not run on makefile as it was not empty file!");
 					}
-					else printErr("Init was not run on makefile as it was not empty file!");
+					else printErr("fstat gave a error!");
+					close(makefilefd);
 				}
-				else printErr("fstat gave a error!");
-				close(makefilefd);
-			}
-			else if(makefilereturn==OPEN_CREATED){
-				//TODO: INIT makefile
-				;
-				close(makefilefd);
-			}
+				else if(makefilereturn==OPEN_CREATED){
+					//TODO: INIT makefile
+					;
+					close(makefilefd);
+				}
+				else printErr("Error to create makefile!");
+				break;
 		}
-		else{
-			printErr("Provided a command doesn't exist!");
-			return 0;
-		}
-
 	}
-	else printconst(STDOUT_FILENO,usage);
+	else{
+		jmp_PRINT_USAGE:
+		printconst(STDOUT_FILENO,usage);
+	}
 
-	return 0;
+	return MAIN_RETURN_SUCCESS;
 }

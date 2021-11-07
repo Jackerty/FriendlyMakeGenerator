@@ -21,6 +21,7 @@ endif
 SRC=$(wildcard Src/*.c)
 # Get object folder
 OBJ=$($(SRC:.c=.o):src=$(OBJFOLDER))
+# Internal depencies files (not used)
 DEP=$(wildcard $(OBJFOLDER)/*.d)
 
 .PHONY: all
