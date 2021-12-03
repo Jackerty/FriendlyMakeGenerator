@@ -85,3 +85,6 @@ After first release:
 	* make does not create config.h
 
 ## Build
+```
+make
+```

@@ -77,10 +77,10 @@ static OpeningReturn makePath(char **pathforopen,char *path,char *defaultpath){
 						//TODO: It is a folder but did the path include slash as a ending or not?
 						const size_t pathlen=strlen(path);
 						const size_t defaultpathlen=strlen(defaultpath);
-						const size_t templen=strlen(path)+strlen(defaultpath)+1;
+						const size_t templen=pathlen+defaultpathlen+1;
 						*pathforopen=malloc(templen);
 						memcpy((char*)*pathforopen,path,pathlen);
-						memcpy((char*)*pathforopen+pathlen,defaultpath,defaultpathlen);
+						memcpy((char*)*pathforopen+pathlen,defaultpath,defaultpathlen+1);
 					}
 					break;
 				case S_IFREG:
@@ -181,7 +181,7 @@ typedef enum InitReturn{
 /**********************************************
 * Initialize makefile.                        *
 **********************************************/
-static InitReturn initMakefile(int makefilefd,uint8_t *iobuffer){
+static InitReturn initMakefile(int makefilefd,char *templatepath){
 	InitReturn returner=INIT_RETURN_SUCCESS;
 
 	// To copy what features init command should have at this time.
@@ -212,8 +212,25 @@ static InitReturn initMakefile(int makefilefd,uint8_t *iobuffer){
 	// - INI file with makefile with snprintf_s formatting and variable answers?
 	// - Makefile.in uses @variable@ it seems.
 	// - Init could ask variables it does not know.
-	// Best option is INI config file with makefile which uses @variables@.
-	;
+	// Best option is INI config file with makefile and configure
+	// which uses @variables@.
+	// Variables has to be decleared in INI to define behavior (like default value or
+	// can be skipped and behavior for the skip).
+
+
+	// Open template file.
+	if(templatepath && templatepath[0]!='\0'){
+		print(STDOUT_FILENO,templatepath);
+
+		// Create config strcutre for template file.
+		config_t makefiletemplate;
+		config_init(&makefiletemplate);
+
+		// Get the makefile variables.
+
+		// No need to keep this structure a round after this function.
+		config_destroy(&makefiletemplate);
+	}
 
 	return returner;
 }
@@ -246,7 +263,9 @@ int main(int argc, char **argv){
 	"  -v, --version\tPrint only version information.\n"
 	"  --config <fmakegen-ini-file>\tSelect INI configuration file for this fmakegen run.\n"
 	"\nList of options which work with commands init:\n"
-	"  -c, --configuration\tFor init make configuration script (configuration script name can be given in as second parameter).\n";
+	"  -c, --configuration\tFor init make configuration script (configuration script name can be given in as second parameter).\n"
+	"  -t, --template\tWhat template should be used during init command.\n"
+	"  --no-config\tDo not use template during init command.\n";
 
 	if(argc>1){
 
@@ -256,10 +275,21 @@ int main(int argc, char **argv){
 			struct{
 				// Is configuration file included.
 				bool configurationincluded:1;
+				union{
+					// Is template path mallocated.
+					bool freetemplatepath:1;
+				};
 			};
 			int32_t shadow;
 		}progflags;
 		progflags.shadow=0;
+		// Variable parameter given by user.
+		// Different for every command.
+		union{
+			struct{
+				char *templatepath;
+			};
+		}uservars={.templatepath=NULL};
 
 		// INI configuration location for the program.
 		// Default value depends on DEBUG mode so development is seperate.
@@ -273,6 +303,7 @@ int main(int argc, char **argv){
 			cfgpath=PROG_LOC "/config.cfg";
 		#endif
 
+
 		// Call opHand to handle options. NOTE: argc-1 and argv+1 jumps over program name.
 		const Option globaloptions[]={
 			{"help",.variable.printstr=usage,.value.v32=sizeof(usage),'h',{false,true,OPHAND_CMD_PRINT}},
@@ -281,7 +312,9 @@ int main(int argc, char **argv){
 			{"no-config",.variable.str=&cfgpath,.value.str=NULL,'\0',{false,false,OPHAND_CMD_POINTER_VALUE}},
 		};
 		const Option initoptions[]={
-			{"configuration",.variable.p32=&progflags.shadow,.value.v32=0,'c',{false,false,OPHAND_CMD_VALUE}}
+			{"configuration",.variable.p32=&progflags.shadow,.value.v32=0,'c',{false,false,OPHAND_CMD_VALUE}},
+			{"template",.variable.str=&uservars.templatepath,.value.str=NULL,'t',{true,false,OPHAND_CMD_POINTER_VALUE}},
+			{"no-template",.variable.str=&uservars.templatepath,.value.str='\0','\0',{false,false,OPHAND_CMD_POINTER_VALUE}}
 		};
 		const OpHandCommand commands[]={
 			{"init",initoptions,sizeof(initoptions)/sizeof(Option)}
@@ -302,41 +335,62 @@ int main(int argc, char **argv){
 		}
 
 		// Load configuration file.
+		//
+		// How to implement? Options:
+		//  1) Grap the info needed and close the configuration?
+		//  2) Leave config structure and query when needed?
+		//
+		// Libconfig does reads everything at ones which means it
+		// could be used as storage medium. Problem is that
+		// some command line arguments can overwritten these.
+		// Hence it is best to offload to variables now based upon if
+		// commandline didn't do anyhing.
 		if(cfgpath){
-			config_t config;
-			config_init(&config);
-			if(config_read_file(&config,cfgpath)==CONFIG_FALSE){
+			config_t globalconfig;
+			config_init(&globalconfig);
+			if(config_read_file(&globalconfig,cfgpath)==CONFIG_FALSE){
 				// Program must work even if configuration does not exist
 				// fails for bizarre reasons.
-				switch(config_error_type(&config)){
+				switch(config_error_type(&globalconfig)){
 					case CONFIG_ERR_FILE_IO:
 						printWarm("libconfig coudn't read fmakegen config!");
 						break;
 					case CONFIG_ERR_PARSE:
 						printWarm("Libconfig parse error!");
 						// TODO: Didn't work. Does not have linenumber nor newline to end the text.
-						print(STDERR_FILENO,config_error_text(&config));
+						print(STDERR_FILENO,config_error_text(&globalconfig));
 						break;
 					default:
 						// This should not happen.
 						printWarm("libconfig whut?");
 				}
-				// TODO: is this config_destroy needed?
-				//       Depends on next todo.
-				// config_destroy(&config);
 			}
-			//TODO: Grap the info needed and close the configuration?
-			//      Leave config structure and query when needed?
-			;
-			config_destroy(&config);
+
+			// Initialize commands parameters.
+			switch(cmdid)
+				case 0:
+					if(!uservars.templatepath){
+						// Strings variables of configuration
+						// are manages by the library so copy has to be done
+						// before config_destroy.
+						// NOTE: malloc is freed at below during the actual command running.
+						char *temp=NULL;
+						config_lookup_string(&globalconfig,"default_makefile_template",(const char**)&temp);
+						uservars.templatepath=malloc((strlen(temp)+1)*sizeof(char));
+						strcpy(uservars.templatepath,temp);
+						progflags.freetemplatepath=true;
+			}
+
+			// Free the global config structure as is no longer
+			// needed.
+			config_destroy(&globalconfig);
 		}
 
-		// Second test what it is.
+		// Run the actual command.
 		switch(cmdid){
 			case 0:
 				// Init creates makefile from scratch.
 				// Makefile isn't created if file exists and has content.
-				uint8_t iobuffer[4096];
 
 				int makefilefd;
 				OpeningReturn makefilereturn=createFile(&makefilefd,nonparameters[0],"Makefile");
@@ -347,20 +401,25 @@ int main(int argc, char **argv){
 					struct stat statbuff;
 					if(fstat(makefilereturn,&statbuff)==0){
 						if(statbuff.st_size==0){
-							//TODO: INIT makefile
-							;
+							// Init makefile.
+							initMakefile(makefilefd,uservars.templatepath);
 						}
-						else printErr("Init was not run on makefile as it was not empty file!");
+						else printErr("Init was not run on makefile as it was not an empty file!");
 					}
-					else printErr("fstat gave a error!");
+					else printErr("fstat gave an error!");
 					close(makefilefd);
 				}
 				else if(makefilereturn==OPEN_CREATED){
-					//TODO: INIT makefile
-					;
+					// Init makefile.
+					initMakefile(makefilefd,uservars.templatepath);
 					close(makefilefd);
 				}
-				else printErr("Error to create makefile!");
+				else printErr("Error to create the makefile!");
+
+				// Free things allocated configuration handling for init.
+				// NOTE: some of thease may have not malloced in first
+				//       place hence check is made.
+				if(progflags.freetemplatepath) free(uservars.templatepath);
 				break;
 		}
 	}
