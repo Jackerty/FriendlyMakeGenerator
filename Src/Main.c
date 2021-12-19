@@ -74,13 +74,22 @@ static OpeningReturn makePath(char **pathforopen,char *path,char *defaultpath){
 						// Allocate temporary memory to hold new path.
 						// New path strings length is path's length plus
 						// defaultpath's length plus one for null symbol.
-						//TODO: It is a folder but did the path include slash as a ending or not?
 						const size_t pathlen=strlen(path);
 						const size_t defaultpathlen=strlen(defaultpath);
-						const size_t templen=pathlen+defaultpathlen+1;
+						// It is a folder but did the path include slash as a ending or not?
+						// Has to be added if not.
+						size_t templen;
+						if(path[pathlen-1]=='/') templen=pathlen+defaultpathlen+1;
+						else templen=pathlen+1+defaultpathlen+1;
 						*pathforopen=malloc(templen);
 						memcpy((char*)*pathforopen,path,pathlen);
-						memcpy((char*)*pathforopen+pathlen,defaultpath,defaultpathlen+1);
+						if(path[pathlen-1]=='/'){
+							memcpy((char*)*pathforopen+pathlen,defaultpath,defaultpathlen+1);
+						}
+						else{
+							(*pathforopen)[pathlen]='/';
+							memcpy((char*)*pathforopen+pathlen+1,defaultpath,defaultpathlen+1);print(STDOUT_FILENO,(char*)*pathforopen);
+						}
 					}
 					break;
 				case S_IFREG:
