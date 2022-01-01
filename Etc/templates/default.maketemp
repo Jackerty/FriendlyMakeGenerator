@@ -1,0 +1,91 @@
+####################################################################################
+# This is makefile template file for Friendly Make Generator (fmakegen). Variable  #
+# group tells variables which control the compilation. String variable makefile    #
+# has the template for the makefile.                                               #
+# URL for configuration format used for variables:                                 #
+# https://hyperrealm.github.io/libconfig/libconfig_manual.html#Configuration-Files #
+####################################################################################
+# Variable to detect if maketemp file is for obselete Friendly Make Generator realese.
+# Is not increment unless behavior of the reader has changed.
+reader_release=0
+# Variable to indicate the version of this maketemp file.
+template_release=0
+# Variables list for the template generation.
+# Variable is a group with behavior variable whichs ids how variable behave.
+# Some bahaviors may have additional variables.
+# Full Format:
+#
+# <variable name>:{
+#   behavior=<behavior_value [0(ignore as empty string if not given) | 1(use default value if not given) | 2(user input must) | 4 (set variable if defined or not) | 5 (or defined group)]>
+#   default_value=<default_value text> // Only needed with behavior 1
+#   is_defined_variable=<variable name>                             // Only needed with behavior 4
+#   is_defined_true_value=<defined variable values if defined true> // Only needed with behavior 4 (can be any libconfig type)
+#   is_defined_false_value=<defined variable value if false>        // Only needed with behavior 4 (can be any libconfig type)
+#   group:{<variable_name>} // Only needed for behavior 5. Internally variables are linked as group. For behavior 5 variable it self tells are the variables defined.TODO: Only two variables per group and rest as recursion?
+# }
+#
+variables:{
+	CC:{
+		behavior=1
+		default_value="gcc"
+	}
+	CCFLAGS:{
+		behavior=1
+		default_value="-wall"
+	}
+	LDFLAGS:{
+		behavior=0
+	}
+	MODULES:{
+		behavior=0
+	}
+	LIBS:{
+		behavior=0
+	}
+	EXE_NAME:{
+		behavior=2
+	}
+}
+# Makefile template as a string.
+# Use ‰ symbol to indicate variables (‰variable_name‰) and commands
+# (‰‰cmd). Acceptable commands are:
+# * ‰‰if <expression>
+#     Commmand for making conditional decisions.
+#     Expression can be constant:
+#       0 for constant false.
+#       any number for constant true.
+#       false for constant false.
+#       true for constant true.
+#       ‰variable‰ for not zero evaluation/true or false evalution.
+#     If expression evaluate true lines INCLUSIVELY between if and else,elif, or fi command are not generated to makefile.
+#     If false those lines are not passed to generated makefile.
+# * ‰‰else 
+#     If last conditional failed then generete with these lines.
+# * ‰‰elif <expression> 
+#     else with if conditional. Can be used add conditionals.
+# * ‰‰fi
+#     Mark end of "insides" of last conditional.
+# * ‰‰configuration
+#     Special boolean variable which tells does project have configuration.
+# * ‰‰other_cli_vars_as_key_val
+#     Special string variable which holds rest of the variables defined from command line.
+#     Generates key=value pairs.
+#     TODO: parameter for better grouping from command line.
+makefile="# Compiler used in compilation.\n"
+         "CC:=‰CC‰\n"
+         "# Additional flags used to compile source code.\n"
+         "CFLAGS:=‰CFLAGS‰\n"
+         "# Additional flags used in linking of object files.\n"
+         "LDFLAGS:=‰LDFLAGS‰\n"
+         "# Modules for the compilation.\n"
+         "MODULES:=‰MODULES‰\n"
+         "LIBS:=‰LIBS‰\n"
+         "\n"
+         ".PHONY: all\n"
+         "all:\n"
+         "	$(CC) \n"
+# Configuration script
+#TODO
+configurationscript:{
+	
+}

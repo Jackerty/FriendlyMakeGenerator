@@ -11,6 +11,10 @@
 #include"OpHand.h"
 
 /**********************************************
+* TODO: Add macro checks for this!            *
+**********************************************/
+#define PROG_LOC "/etc/fmakegen/"
+/**********************************************
 * Simple macro to find miminum of two values. *
 **********************************************/
 #define MIN(_x_,_y_) (_x_ < _y_ ? _x_ : _y_ )
@@ -25,6 +29,24 @@
 **********************************************/
 #define printWarm(warm) printconst(STDERR_FILENO,"fmakegen:WARM: " #warm "\n")
 
+/**********************************************
+* Print out libconfig parse error.            *
+**********************************************/
+void printParseErr(const config_t *config){
+	const char *errorfile=config_error_file(config);
+	const char *errortext=config_error_text(config);
+	int errorint=config_error_line(config);
+	IoVec vec[]={
+		{.iov_base="        ",.iov_len=8},
+		{.iov_base=(char*)errorfile,.iov_len=strlen(errorfile)},
+		{.iov_base=":\n        ",.iov_len=10},
+		{.iov_base=(char*)errortext,.iov_len=strlen(errortext)},
+		{.iov_base=" at line ",.iov_len=9},
+		{.iov_base=0,.format_type=IO_VEC_INT_TO_DEC},
+		{.iov_base=".\n",.iov_len=2}
+	};
+	writevf(STDERR_FILENO,vec,sizeof(vec)/sizeof(IoVec),errorint);
+}
 /**********************************************
 * Makefile/configure script opening return    *
 * values.                                     *
@@ -88,7 +110,7 @@ static OpeningReturn makePath(char **pathforopen,char *path,char *defaultpath){
 						}
 						else{
 							(*pathforopen)[pathlen]='/';
-							memcpy((char*)*pathforopen+pathlen+1,defaultpath,defaultpathlen+1);print(STDOUT_FILENO,(char*)*pathforopen);
+							memcpy((char*)*pathforopen+pathlen+1,defaultpath,defaultpathlen+1);
 						}
 					}
 					break;
@@ -179,19 +201,12 @@ static OpeningReturn createFile(int *fd,char *path,char *defaultpath){
 	return OPEN_CREATED;
 }
 /**********************************************
-* Init function return value.                 *
-**********************************************/
-typedef enum InitReturn{
-	INIT_RETURN_SUCCESS,
-}InitReturn;
-/**********************************************
-* Makefile init flags? *
+* Makefile init flags? TODO*
 **********************************************/
 /**********************************************
 * Initialize makefile.                        *
 **********************************************/
-static InitReturn initMakefile(int makefilefd,char *templatepath){
-	InitReturn returner=INIT_RETURN_SUCCESS;
+static void initMakefile(int makefilefd,char *templatename){
 
 	// To copy what features init command should have at this time.
 	// - Initialazation from templates.
@@ -215,33 +230,110 @@ static InitReturn initMakefile(int makefilefd,char *templatepath){
 	// Last one is just option but how to add templates and certain targets and variables?
 	// - Make so that by default default template from init file is used.
 	// - This can be overwritten by telling targets and variables manually.
-	// - Other template can be pointed at.
+	// - Other template can be pointed at? @include in the format enough?
 	//
 	// What is template file format? What format did autotools use?
 	// - INI file with makefile with snprintf_s formatting and variable answers?
-	// - Makefile.in uses @variable@ it seems.
+	// - Makefile.in uses @variable@ it seems. Although @recipe is interperted by make as echo silencer so other symbol should be used.
 	// - Init could ask variables it does not know.
 	// Best option is INI config file with makefile and configure
-	// which uses @variables@.
+	// which uses ‰variables‰. ‰ is used since it is one byte in UTF-8 and makefile does not use it (@ is used for command silencer).
 	// Variables has to be decleared in INI to define behavior (like default value or
 	// can be skipped and behavior for the skip).
-
+	// How to read with one swoop?
+	//   Loop config_read_string untill buffer hits makefile group?
+	//     - Is everything before parsing error written in to the config file? Could abuse.
+	//   Make push request to library to add parsing callback?
+	//     - Code is genereated via yyparse so would have to mess with that.
+	//   Read untill you find makefile group?
+	//     - Double reading the file ...
+	//    Make makefile template proper string variable in the configs format...
+	//     - Makefile template is double read but if statement possible makes
+	//       it so that buffer copy has to be done no matter what.
+	// Lets go with proper string option as it is the best for the system.
 
 	// Open template file.
-	if(templatepath && templatepath[0]!='\0'){
-		print(STDOUT_FILENO,templatepath);
+	if(templatename && templatename[0]!='\0'){
+
+		// Makefile template search locations.
+		// TODO: Template path macro for makefile/configuration editing
+		#if DEBUG
+			char *templatesearchloc[]={"Etc/templates/"};
+			int32_t templatesearchloclen=1;
+			int32_t longesttemplatesearchloc=strlen(templatesearchloc[0]);
+		#else
+			//TODO: Add template directory to home directory's .config?
+			char *templatesearchloc[]={PROG_LOC"templates/"};
+			int32_t templatesearchloclen=1;
+			int32_t longesttemplatesearchloc=0;
+			// Get the max. Hopefully optimized out.
+			for(int32_t i=templatesearchloclen-1;i>=0;i--){
+				int32_t temp=strlen(templatesearchloc[i]);
+				if(longesttemplatesearchloc<temp) templatesearchloclen=temp;
+			}
+		#endif
+
+		// Search the template name.
+		// Allocate path for the template. Only one allocation needed as
+		// longesttemplatesearchloc is quarenteed to be longest string in
+		// templatesearchloc.
+		char *templatepath=malloc(longesttemplatesearchloc+strlen(templatename)+1);
+		for(int32_t i=templatesearchloclen-1;i>=0;i--){
+			// Concatenate two string to make the potential path.
+			memcpy(templatepath,templatesearchloc[i],strlen(templatesearchloc[i]));
+			memcpy(templatepath+strlen(templatesearchloc[i]),templatename,strlen(templatename));
+			*(templatepath+strlen(templatesearchloc[i])+strlen(templatename))='\0';
+
+			// Check access.
+			if(access(templatepath,R_OK)==0) goto jmp_FILE_FOUND;
+		}
+		// Abort no file was found.
+		printErr("Makefile template not found!");
+		free(templatepath);
+		return;
+
+		jmp_FILE_FOUND:
+		#if DEBUG
+			printStrCat(STDOUT_FILENO,templatepath,"\n",strlen(templatepath),1);
+		#endif
 
 		// Create config strcutre for template file.
 		config_t makefiletemplate;
 		config_init(&makefiletemplate);
 
-		// Get the makefile variables.
+		// Read the configuration file.
+		if(config_read_file(&makefiletemplate,templatepath)==CONFIG_TRUE){
+
+			// Read the makefile variable.
+			const char *template;
+			config_lookup_string(&makefiletemplate,"makefile",&template);
+
+			#if DEBUG
+				print(STDOUT_FILENO,template);
+			#endif
+
+		}
+		else{
+			switch(config_error_type(&makefiletemplate)){
+				case CONFIG_ERR_FILE_IO:
+					printErr("libconfig could not IO with template file. ABORT!");
+					break;
+				case CONFIG_ERR_PARSE:;
+					printErr("libconfig could not parse template file. ABORT!");
+					//TODO: Error line printing.
+					//      Make function for this since parse error can happen else where.
+					printParseErr(&makefiletemplate);
+					break;
+				default:
+					// This should not happen.
+					printWarm("libconfig whut with template file? ABORT!");
+			}
+		}
 
 		// No need to keep this structure a round after this function.
 		config_destroy(&makefiletemplate);
+		free(templatepath);
 	}
-
-	return returner;
 }
 /**********************************************
 * Main handles CLI mainly.                    *
@@ -302,13 +394,12 @@ int main(int argc, char **argv){
 
 		// INI configuration location for the program.
 		// Default value depends on DEBUG mode so development is seperate.
-		// TODO: config file name macro?
+		// TODO: config file name macro for makefile/configuration editing?
 		char *cfgpath;
 		#if DEBUG
 			cfgpath="Etc/config.cfg";
 		#else
-			//TODO: Add macro checks for this!
-			#define PROG_LOC "/etc/fmakegen/"
+
 			cfgpath=PROG_LOC "/config.cfg";
 		#endif
 
@@ -366,8 +457,7 @@ int main(int argc, char **argv){
 						break;
 					case CONFIG_ERR_PARSE:
 						printWarm("Libconfig parse error!");
-						// TODO: Didn't work. Does not have linenumber nor newline to end the text.
-						print(STDERR_FILENO,config_error_text(&globalconfig));
+						printParseErr(&globalconfig);
 						break;
 					default:
 						// This should not happen.
@@ -383,11 +473,12 @@ int main(int argc, char **argv){
 						// are manages by the library so copy has to be done
 						// before config_destroy.
 						// NOTE: malloc is freed at below during the actual command running.
-						char *temp=NULL;
-						config_lookup_string(&globalconfig,"default_makefile_template",(const char**)&temp);
-						uservars.templatepath=malloc((strlen(temp)+1)*sizeof(char));
-						strcpy(uservars.templatepath,temp);
-						progflags.freetemplatepath=true;
+						const char *temp;
+						if(config_lookup_string(&globalconfig,"default_makefile_template",&temp)==CONFIG_TRUE){
+							uservars.templatepath=malloc((strlen(temp)+1)*sizeof(char));
+							strcpy(uservars.templatepath,temp);
+							progflags.freetemplatepath=true;
+						}
 			}
 
 			// Free the global config structure as is no longer
@@ -426,7 +517,7 @@ int main(int argc, char **argv){
 				else printErr("Error to create the makefile!");
 
 				// Free things allocated configuration handling for init.
-				// NOTE: some of thease may have not malloced in first
+				// NOTE: some of these may have not malloced in first
 				//       place hence check is made.
 				if(progflags.freetemplatepath) free(uservars.templatepath);
 				break;
